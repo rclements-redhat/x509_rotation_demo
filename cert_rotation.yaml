@@ -1,85 +1,23 @@
----
-- name: Build SAN -> cert map from bundle
-  hosts: localhost
-  gather_facts: false
-  vars:
-    bundle_dir: "certs/cert_bundle/2026-rotation"
-  tasks:
-    - name: Find SAN certs in bundle
-      find:
-        paths: "{{ bundle_dir }}"
-        patterns: "*_san_cert.pem"
-        file_type: file
-      register: found
-
-    - name: Build cert_map (fqdn -> cert/key)
-      vars:
-        cert_path: "{{ item.path }}"
-        key_path: "{{ item.path | regex_replace('_san_cert\\.pem$', '_san_key.pem') }}"
-      block:
-        - name: Ensure matching key exists
-          stat:
-            path: "{{ key_path }}"
-          register: key_stat
-
-        - name: Fail if key missing
-          fail:
-            msg: "Missing key for {{ cert_path }}. Expected {{ key_path }}"
-          when: not key_stat.stat.exists
-
-        - name: Extract SANs
-          command: "openssl x509 -in {{ cert_path }} -noout -ext subjectAltName"
-          register: san
-          changed_when: false
-
-        - name: Update cert_map with each DNS SAN
-          vars:
-            sans: "{{ san.stdout | regex_findall('DNS:([^,\\s]+)') }}"
-          set_fact:
-            cert_map: >-
-              {{
-                cert_map | default({}) |
-                combine(dict(sans | zip(sans | map('regex_replace', '^(.*)$', cert_path ~ '|' ~ key_path) | list)),
-                        recursive=True)
-              }}
-      loop: "{{ found.files }}"
-
-    - name: Convert map values into dicts + detect duplicates
-      vars:
-        _raw: "{{ cert_map | default({}) }}"
-      set_fact:
-        cert_map_final: >-
-          {{
-            dict(_raw | dict2items | map(attribute='key') |
-                 zip(_raw | dict2items | map(attribute='value') |
-                     map('split','|') |
-                     map('list') |
-                     map('community.general.dict', ['cert','key'])))
-          }}
-
-    - name: Show resulting map (demo visibility)
-      debug:
-        var: cert_map_final
-
-- name: Deploy matching cert to hosts
+- name: Deploy matching cert/key to hosts
   hosts: all
   gather_facts: true
+  become: true
   vars:
     tls_cert_path: /etc/pki/tls/certs/server.pem
     tls_key_path: /etc/pki/tls/private/server.key
   tasks:
-    - name: Determine match name
+    - name: Determine match name (fqdn -> inventory fallback)
       set_fact:
         match_name: "{{ ansible_fqdn | default(inventory_hostname) }}"
 
     - name: Fail if no cert matches this host
       fail:
         msg: "No certificate in bundle matches {{ match_name }}"
-      when: hostvars['localhost'].cert_map_final[match_name] is not defined
+      when: hostvars['localhost'].cert_map[match_name] is not defined
 
     - name: Copy cert
       copy:
-        src: "{{ hostvars['localhost'].cert_map_final[match_name].cert }}"
+        src: "{{ hostvars['localhost'].cert_map[match_name].cert }}"
         dest: "{{ tls_cert_path }}"
         owner: root
         group: root
@@ -87,15 +25,14 @@
 
     - name: Copy key
       copy:
-        src: "{{ hostvars['localhost'].cert_map_final[match_name].key }}"
+        src: "{{ hostvars['localhost'].cert_map[match_name].key }}"
         dest: "{{ tls_key_path }}"
         owner: root
         group: root
         mode: "0600"
 
-    - name: Reload httpd if present
+    - name: Reload httpd
       service:
         name: httpd
         state: reloaded
-      when: "'apache' in group_names or ansible_facts.services is not defined"
       ignore_errors: true

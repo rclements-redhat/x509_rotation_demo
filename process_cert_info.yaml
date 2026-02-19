@@ -1,0 +1,36 @@
+---
+- name: Build mapping entries for one cert (fail on duplicates)
+  vars:
+    cert_path: "{{ item.item.path }}"
+    key_path: "{{ item.item.path | regex_replace('_san_cert\\.pem$', '_san_key.pem') }}"
+    sans_raw: "{{ item.subject_alt_name | default([]) }}"
+    sans_dns: >-
+      {{
+        sans_raw
+        | select('match', '^DNS:')
+        | map('regex_replace', '^DNS:', '')
+        | list
+      }}
+  block:
+    - name: Fail if cert has no DNS SANs
+      fail:
+        msg: "No DNS SANs found in {{ cert_path }} (subject_alt_name={{ sans_raw }})"
+      when: (sans_dns | length) == 0
+
+    - name: Fail if any SAN already mapped (duplicate SAN)
+      fail:
+        msg: "Duplicate SAN {{ san }}: already mapped to {{ cert_map[san].cert }}, also present in {{ cert_path }}"
+      when: san in cert_map
+      loop: "{{ sans_dns }}"
+      loop_control:
+        loop_var: san
+        label: "{{ san }}"
+
+    - name: Add SAN -> {cert,key}
+      set_fact:
+        cert_map: "{{ cert_map | combine({ san: {'cert': cert_path, 'key': key_path} }) }}"
+      loop: "{{ sans_dns }}"
+      loop_control:
+        loop_var: san
+        label: "{{ san }}"
+

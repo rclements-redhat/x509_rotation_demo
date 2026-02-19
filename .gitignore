@@ -1,0 +1,20 @@
+# --- vscode stuff ---
+.vscode
+
+# --- Private keys (never commit) ---
+certs/demoCA/private/
+certs/cert_config/*.key
+
+# --- OpenSSL CA database junk ---
+certs/demoCA/newcerts/
+certs/demoCA/index.txt*
+certs/demoCA/serial*
+certs/demoCA/crl/
+certs/demoCA/*.pem     # optional if CA dumps here
+
+# --- CSRs and temp build artifacts ---
+certs/cert_config/*.csr
+certs/cert_config/*.crt   # if just intermediate junk
+*.srl
+*.old
+

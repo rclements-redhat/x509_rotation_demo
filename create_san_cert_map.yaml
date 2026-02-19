@@ -1,0 +1,59 @@
+---
+- name: Build SAN -> cert map from bundle
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bundle_dir: "certs/cert_bundle/2026-rotation"
+  tasks:
+    - name: Find SAN certs in bundle
+      find:
+        paths: "{{ bundle_dir }}"
+        patterns: "*_san_cert.pem"
+        file_type: file
+      register: found
+
+    - name: Fail if no certs found
+      fail:
+        msg: "No *_san_cert.pem files found in {{ bundle_dir }}"
+      when: (found.files | length) == 0
+
+    - name: Stat matching keys
+      vars:
+        key_path: "{{ item.path | regex_replace('_san_cert\\.pem$', '_san_key.pem') }}"
+      stat:
+        path: "{{ key_path }}"
+      loop: "{{ found.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: key_stats
+
+    - name: Fail if key missing
+      fail:
+        msg: "Missing key for {{ item.item.path }}. Expected {{ item.stat.path }}"
+      when: not item.stat.exists
+      loop: "{{ key_stats.results }}"
+      loop_control:
+        label: "{{ item.item.path | basename }}"
+
+    - name: Read cert metadata (SANs, dates, etc.)
+      community.crypto.x509_certificate_info:
+        path: "{{ item.path }}"
+      loop: "{{ found.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: cert_infos
+
+    - name: Initialize cert_map
+      set_fact:
+        cert_map: {}
+
+    - name: Process each cert into cert_map
+      include_tasks: process_cert_info.yaml
+      loop: "{{ cert_infos.results }}"
+      loop_control:
+        label: "{{ item.item.path | basename }}"
+
+    - name: Show resulting map (demo visibility)
+      debug:
+        var: cert_map
+
