@@ -67,7 +67,7 @@
 
     - name: Install SSL vhost config from template
       template:
-        src: templates/ssl-demo.conf.j2
+        src: templates/ssl.conf.j2
         dest: "{{ ssl_conf_path }}"
         owner: root
         group: root
