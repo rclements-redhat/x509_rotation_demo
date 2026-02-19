@@ -3,13 +3,14 @@
   hosts: all
   gather_facts: true
   become: true
+
   vars:
     tls_cert_path: /etc/pki/tls/certs/server.pem
     tls_key_path: /etc/pki/tls/private/server.key
 
   pre_tasks:
     - name: Sanity check - cert_map exists (from workflow artifacts)
-      assert:
+      ansible.builtin.assert:
         that:
           - cert_map is defined
           - cert_map | length > 0
@@ -18,17 +19,21 @@
           using set_stats (data: { cert_map: ... }).
 
     - name: Determine match name (fqdn -> inventory fallback)
-      set_fact:
+      ansible.builtin.set_fact:
         match_name: "{{ ansible_fqdn | default(inventory_hostname) }}"
 
-    - name: Fail if no cert matches this host
-      fail:
-        msg: "No certificate in bundle matches {{ match_name }}"
-      when: cert_map[match_name] is not defined
+    - name: Warn if no cert matches this host
+      ansible.builtin.debug:
+        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping this host)"
+      when: cert_map.get(match_name) is not defined
+
+    - name: Skip host if no matching cert
+      ansible.builtin.meta: end_host
+      when: cert_map.get(match_name) is not defined
 
   tasks:
     - name: Copy cert
-      copy:
+      ansible.builtin.copy:
         src: "{{ cert_map[match_name].cert }}"
         dest: "{{ tls_cert_path }}"
         owner: root
@@ -36,7 +41,7 @@
         mode: "0644"
 
     - name: Copy key
-      copy:
+      ansible.builtin.copy:
         src: "{{ cert_map[match_name].key }}"
         dest: "{{ tls_key_path }}"
         owner: root
@@ -44,11 +49,10 @@
         mode: "0600"
 
     - name: Regenerate cert info json for demo page
-      command: /usr/local/bin/generate_certinfo.sh
+      ansible.builtin.command: /usr/local/bin/generate_certinfo.sh
 
     - name: Reload httpd (ignore if not present)
-      service:
+      ansible.builtin.service:
         name: httpd
         state: reloaded
       ignore_errors: true
-
