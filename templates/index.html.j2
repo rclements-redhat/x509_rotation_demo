@@ -251,13 +251,41 @@ function fmtDate(x){ if(!x) return "—"; return new Date(x).toLocaleString(); }
 function daysBetween(a,b){ return Math.floor((b-a)/(86400000)); }
 
 function setStatus(days){
- let cls="warn",msg="Expiring soon";
- if(days>=30){cls="ok";msg="Healthy";}
- if(days<7){cls="bad";msg="Critical";}
- el("statusText").textContent=`${msg} • ${days} days`;
- el("statusLabel").textContent=msg;
- el("statusLabel").className="statusStrong "+cls;
+    const dot = el("statusDot");
+    const txt = el("statusText");
+    const lbl = el("statusLabel");
+
+    let cls="warn", msg="Expiring soon";
+
+    if (days >= 30){
+        cls="ok";
+        msg="Healthy";
+    }
+    else if (days < 7){
+        cls="bad";
+        msg="Critical";
+    }
+
+    // text
+    txt.textContent = `${msg} • ${days} days`;
+    lbl.textContent = msg;
+    lbl.className = "statusStrong " + cls;
+
+    // DOT COLOR FIX
+    if (cls === "ok"){
+        dot.style.background = "var(--good)";
+        dot.style.boxShadow = "0 0 0 4px rgba(61,220,151,.25)";
+    }
+    else if (cls === "bad"){
+        dot.style.background = "var(--bad)";
+        dot.style.boxShadow = "0 0 0 4px rgba(255,92,122,.25)";
+    }
+    else{
+        dot.style.background = "var(--warn)";
+        dot.style.boxShadow = "0 0 0 4px rgba(255,209,102,.25)";
+    }
 }
+
 
 async function load(){
  el("host").textContent=location.hostname;
