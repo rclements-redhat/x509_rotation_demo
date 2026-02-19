@@ -74,13 +74,14 @@
         mode: "0644"
       notify: restart apache
 
-    - name: Install generate_certinfo script from template
-      template:
-        src: templates/generate_certinfo.sh.j2
-        dest: "{{ certinfo_script_path }}"
+    - name: Install generate_certinfo script
+      copy:
+        src: files/generate_certinfo.sh
+        dest: /usr/local/bin/generate_certinfo.sh
         owner: root
         group: root
-        mode: "0755"
+        mode: '0755'
+
 
     - name: Install TLS status index.html from template
       template:

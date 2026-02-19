@@ -2,8 +2,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CERT="{{ tls_cert_path }}"
-OUT="{{ ssl_docroot }}/certinfo.json"
+CERT="/etc/pki/tls/certs/server.crt"
+OUT="/var/www/html/certinfo.json"
 
 if [[ ! -r "$CERT" ]]; then
   cat > "$OUT" <<EOF
