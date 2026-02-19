@@ -18,42 +18,42 @@
           cert_map is not defined. Ensure the previous workflow job publishes it
           using set_stats (data: { cert_map: ... }).
 
-    # IMPORTANT: don't use ansible_fqdn (EC2 often reports ip-*.compute.internal)
     - name: Determine match name (use inventory hostname)
       ansible.builtin.set_fact:
         match_name: "{{ inventory_hostname }}"
 
     - name: Warn if no cert matches this host
       ansible.builtin.debug:
-        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping this host)"
-      when: cert_map.get(match_name) is not defined
-
-    - name: Skip host if no matching cert
-      ansible.builtin.meta: end_host
+        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping cert install)"
       when: cert_map.get(match_name) is not defined
 
   tasks:
-    - name: Copy cert
-      ansible.builtin.copy:
-        src: "{{ cert_map[match_name].cert }}"
-        dest: "{{ tls_cert_path }}"
-        owner: root
-        group: root
-        mode: "0644"
+    - name: Install cert/key only when a matching cert_map entry exists
+      block:
+        - name: Copy cert
+          ansible.builtin.copy:
+            src: "{{ cert_map[match_name].cert }}"
+            dest: "{{ tls_cert_path }}"
+            owner: root
+            group: root
+            mode: "0644"
 
-    - name: Copy key
-      ansible.builtin.copy:
-        src: "{{ cert_map[match_name].key }}"
-        dest: "{{ tls_key_path }}"
-        owner: root
-        group: root
-        mode: "0600"
+        - name: Copy key
+          ansible.builtin.copy:
+            src: "{{ cert_map[match_name].key }}"
+            dest: "{{ tls_key_path }}"
+            owner: root
+            group: root
+            mode: "0600"
 
-    - name: Regenerate cert info json for demo page
-      ansible.builtin.command: /usr/local/bin/generate_certinfo.sh
+        - name: Regenerate cert info json for demo page
+          ansible.builtin.command: /usr/local/bin/generate_certinfo.sh
+          changed_when: false
 
-    - name: Reload httpd (ignore if not present)
-      ansible.builtin.service:
-        name: httpd
-        state: reloaded
-      ignore_errors: true
+        - name: Reload httpd (ignore if not present)
+          ansible.builtin.service:
+            name: httpd
+            state: reloaded
+          ignore_errors: true
+
+      when: cert_map.get(match_name) is defined
