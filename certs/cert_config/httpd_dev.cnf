@@ -1,0 +1,16 @@
+[req]
+prompt = no
+default_bits = 2048
+default_md = sha256
+distinguished_name = dn
+req_extensions = v3_req
+
+[dn]
+CN = webdev1.demo.local
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = webdev1.demo.local
+DNS.2 = webdev2.demo.local
