@@ -4,6 +4,11 @@ set -euo pipefail
 # --- Settings (edit these if you want) ---
 WEB_DNS_1="web1.demo.local"
 WEB_DNS_2="web2.demo.local"
+
+# NEW: second "web-ish" cert for web3/web4
+WEB_DEV_DNS_1="webdev1.demo.local"
+WEB_DEV_DNS_2="webdev2.demo.local"
+
 IIS_DNS_1="iis1.demo.local"
 IIS_DNS_2="iis2.demo.local"
 
@@ -94,7 +99,6 @@ sign_with_ca() {
   local start="$3"
   local end="$4"
 
-  # openssl ca writes into ./demoCA relative to where it's run due to config paths.
   ( cd "${BASE_DIR}" && \
     openssl ca -batch -config demoCA/openssl.cnf \
       -in "$csr" -out "$out_cert" \
@@ -104,7 +108,7 @@ sign_with_ca() {
 
 gen_pair() {
   local out_dir="$1"          # e.g. certs/cert_bundle/2025-current
-  local prefix="$2"           # web or iis
+  local prefix="$2"           # web / web_dev / iis
   local cnf="$3"              # path to req config
   local start="$4"
   local end="$5"
@@ -142,10 +146,15 @@ echo "==> Writing request configs into ${CERT_CREATION_DIR}"
 mkdir -p "${CERT_CREATION_DIR}"
 
 HTTPD_CNF="${CERT_CREATION_DIR}/httpd.cnf"
+HTTPD_DEV_CNF="${CERT_CREATION_DIR}/httpd_dev.cnf"
 IIS_CNF="${CERT_CREATION_DIR}/iis.cnf"
 
-write_req_cnf "${HTTPD_CNF}" "${WEB_DNS_1}" "${WEB_DNS_1}" "${WEB_DNS_2}"
-write_req_cnf "${IIS_CNF}"   "${IIS_DNS_1}" "${IIS_DNS_1}" "${IIS_DNS_2}"
+# Original web cert = web1/web2 (stays "web_*" files)
+write_req_cnf "${HTTPD_CNF}"     "${WEB_DNS_1}"     "${WEB_DNS_1}"     "${WEB_DNS_2}"
+# New web-dev cert = web3/web4 (writes "web_dev_*" files)
+write_req_cnf "${HTTPD_DEV_CNF}" "${WEB_DEV_DNS_1}" "${WEB_DEV_DNS_1}" "${WEB_DEV_DNS_2}"
+
+write_req_cnf "${IIS_CNF}"       "${IIS_DNS_1}"     "${IIS_DNS_1}"     "${IIS_DNS_2}"
 
 make_ca_if_missing
 
@@ -158,13 +167,15 @@ NEW_END="$(date -u -d "365 days" +"%Y%m%d%H%M%SZ")"
 
 echo "==> Regenerating OLD (expiring soon) bundle: ${OLD_DIR}"
 rm -rf "${OLD_DIR}"
-gen_pair "${OLD_DIR}" "web" "${HTTPD_CNF}" "${OLD_START}" "${OLD_END}"
-gen_pair "${OLD_DIR}" "iis" "${IIS_CNF}"   "${OLD_START}" "${OLD_END}"
+gen_pair "${OLD_DIR}" "web"     "${HTTPD_CNF}"     "${OLD_START}" "${OLD_END}"
+gen_pair "${OLD_DIR}" "web_dev" "${HTTPD_DEV_CNF}" "${OLD_START}" "${OLD_END}"
+gen_pair "${OLD_DIR}" "iis"     "${IIS_CNF}"       "${OLD_START}" "${OLD_END}"
 
 echo "==> Regenerating NEW (rotation) bundle: ${NEW_DIR}"
 rm -rf "${NEW_DIR}"
-gen_pair "${NEW_DIR}" "web" "${HTTPD_CNF}" "${NEW_START}" "${NEW_END}"
-gen_pair "${NEW_DIR}" "iis" "${IIS_CNF}"   "${NEW_START}" "${NEW_END}"
+gen_pair "${NEW_DIR}" "web"     "${HTTPD_CNF}"     "${NEW_START}" "${NEW_END}"
+gen_pair "${NEW_DIR}" "web_dev" "${HTTPD_DEV_CNF}" "${NEW_START}" "${NEW_END}"
+gen_pair "${NEW_DIR}" "iis"     "${IIS_CNF}"       "${NEW_START}" "${NEW_END}"
 
 # Copy CA cert into bundle dirs (useful for demo trust/validation)
 cp -f "${CA_DIR}/certs/ca.crt" "${OLD_DIR}/demo_ca.crt"
@@ -172,12 +183,14 @@ cp -f "${CA_DIR}/certs/ca.crt" "${NEW_DIR}/demo_ca.crt"
 
 echo "==> Verifying output"
 verify_cert "${OLD_DIR}/web_san_cert.pem"
+verify_cert "${OLD_DIR}/web_dev_san_cert.pem"
 verify_cert "${OLD_DIR}/iis_san_cert.pem"
+
 verify_cert "${NEW_DIR}/web_san_cert.pem"
+verify_cert "${NEW_DIR}/web_dev_san_cert.pem"
 verify_cert "${NEW_DIR}/iis_san_cert.pem"
 
 echo "==> Done."
 echo "Old bundle (expires ~2 weeks): ${OLD_DIR}"
 echo "New bundle (valid 1 year):     ${NEW_DIR}"
 echo "CA cert:                       ${CA_DIR}/certs/ca.crt"
-
