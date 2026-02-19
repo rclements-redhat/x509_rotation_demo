@@ -175,6 +175,20 @@ h1{
  border-radius:12px;
  font-size:13px;
 }
+
+/* SAN list styling */
+.sansList{
+ margin:0;
+ padding-left:18px;
+}
+.sansList li{
+ margin:4px 0;
+ color:#dbe7ff;
+}
+.small{
+ font-size:12px;
+ color:var(--muted);
+}
 </style>
 </head>
 
@@ -217,6 +231,13 @@ h1{
 <div class="k">Valid Until</div><div class="v" id="notAfter">…</div>
 <div class="k">Days Remaining</div><div class="v" id="daysLeft">…</div>
 <div class="k">SHA-256</div><div class="v mono" id="fpSha256">…</div>
+
+<!-- NEW: SANs row -->
+<div class="k">SANs</div>
+<div class="v">
+  <ul class="sansList" id="sans"></ul>
+  <div class="small" id="sansEmpty" style="display:none;">No SANs found.</div>
+</div>
 
 </dl>
 
@@ -286,7 +307,6 @@ function setStatus(days){
     }
 }
 
-
 async function load(){
  el("host").textContent=location.hostname;
  el("fetchedAt").textContent=new Date().toLocaleString();
@@ -297,11 +317,6 @@ async function load(){
  const cn=d.common_name ||
   (d.subject||"").match(/CN\s*=\s*([^,\/]+)/)?.[1] ||
   "unknown";
-
- // ===== SERVER NAME PRIORITY =====
- // 1) backend provided hostname (best)
- // 2) browser hostname fallback
- const realServer = d.server_hostname || location.hostname || "unknown";
 
  el("certCNInline").textContent = cn;
  el("badgeCN").textContent="CN: "+cn;
@@ -320,11 +335,30 @@ async function load(){
  el("daysLeft").textContent=days;
  setStatus(days);
 
+ // NEW: SAN rendering
+ const sansEl = el("sans");
+ const sansEmpty = el("sansEmpty");
+ sansEl.innerHTML = "";
+
+ const sans = Array.isArray(d.sans) ? d.sans : [];
+ if (sans.length === 0){
+   sansEmpty.style.display = "block";
+ } else {
+   sansEmpty.style.display = "none";
+   for (const s of sans){
+     const li = document.createElement("li");
+     li.textContent = s;
+     sansEl.appendChild(li);
+   }
+ }
+
  el("refreshBtn").onclick=()=>location.reload();
 }
 
 load().catch(e=>{
- el("serverName").textContent="Unable to load";
+ // keep hostname templated; just show failure state
+ el("statusText").textContent="Unable to load certinfo.json";
+ el("statusLabel").textContent="Unavailable";
 });
 </script>
 
