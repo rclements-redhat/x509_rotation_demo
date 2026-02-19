@@ -195,7 +195,7 @@ h1{
 <!-- BIG SERVER NAME -->
 <div class="serverBanner">
  <div class="serverLabel">Connected To Server</div>
- <div class="serverName" id="serverName">{{ ansible_facts.fqdn | default(inventory_hostname) }}</div>
+ <div class="serverName" id="serverName">{{ inventory_hostname }}</div>
  <div class="serverMeta">Cert CN: <span id="certCNInline">…</span></div>
 </div>
 
