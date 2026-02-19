@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CERT="/etc/pki/tls/certs/server.crt"
+CERT="/etc/pki/tls/certs/server.pem"
 OUT="/var/www/html/certinfo.json"
 
 if [[ ! -r "$CERT" ]]; then
