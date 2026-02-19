@@ -1,0 +1,102 @@
+---
+- name: Provision Apache SSL demo server (baseline + cert status page)
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    httpd_service: httpd
+    bundle_dir_2025: "{{ playbook_dir }}/certs/cert_bundle/2025-current"
+
+    tls_cert_path: /etc/pki/tls/certs/server.pem
+    tls_key_path: /etc/pki/tls/private/server.key
+
+    ssl_docroot: /var/www/html
+    certinfo_script_path: /usr/local/bin/generate_certinfo.sh
+
+    # Drop-in vhost config
+    ssl_conf_path: /etc/httpd/conf.d/ssl.conf
+
+    # Pick the initial cert/key from the 2025 bundle
+    initial_cert_basename: web
+
+  handlers:
+    - name: restart apache
+      service:
+        name: "{{ httpd_service }}"
+        state: restarted
+        enabled: true
+
+  tasks:
+    - name: Install Apache + SSL packages
+      package:
+        name:
+          - httpd
+          - mod_ssl
+          - openssl
+        state: present
+
+    - name: Ensure TLS directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ tls_cert_path | dirname }}"
+        - "{{ tls_key_path | dirname }}"
+
+    - name: Install initial (expiring 2025) cert
+      copy:
+        src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_cert.pem"
+        dest: "{{ tls_cert_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart apache
+
+    - name: Install initial (expiring 2025) key
+      copy:
+        src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_key.pem"
+        dest: "{{ tls_key_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      notify: restart apache
+
+    - name: Install SSL vhost config from template
+      template:
+        src: templates/ssl-demo.conf.j2
+        dest: "{{ ssl_conf_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart apache
+
+    - name: Install generate_certinfo script from template
+      template:
+        src: templates/generate_certinfo.sh.j2
+        dest: "{{ certinfo_script_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install TLS status index.html from template
+      template:
+        src: templates/index.html.j2
+        dest: "{{ ssl_docroot }}/index.html"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart apache
+
+    - name: Generate initial certinfo.json
+      command: "{{ certinfo_script_path }}"
+      changed_when: false
+
+    - name: Ensure Apache is enabled and running
+      service:
+        name: "{{ httpd_service }}"
+        state: started
+        enabled: true

@@ -1,0 +1,25 @@
+# Demo TLS vhost
+Listen 443 https
+
+<VirtualHost _default_:443>
+    ServerName {{ inventory_hostname }}
+
+    DocumentRoot "{{ ssl_docroot }}"
+
+    SSLEngine on
+    SSLCertificateFile "{{ tls_cert_path }}"
+    SSLCertificateKeyFile "{{ tls_key_path }}"
+
+    SSLProtocol all -SSLv2 -SSLv3
+    SSLCipherSuite HIGH:!aNULL:!MD5
+    SSLHonorCipherOrder on
+
+    <Directory "{{ ssl_docroot }}">
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    ErrorLog logs/ssl-demo-error_log
+    CustomLog logs/ssl-demo-access_log combined
+</VirtualHost>
