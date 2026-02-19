@@ -22,38 +22,53 @@
       ansible.builtin.set_fact:
         match_name: "{{ inventory_hostname }}"
 
+    - name: Fail fast if no cert matches this host
+      ansible.builtin.assert:
+        that:
+          - match_name in cert_map
+        fail_msg: "No certificate in bundle matches {{ match_name }} (cert_map keys: {{ cert_map.keys() | list | sort }})"
+
   tasks:
-    - name: Warn if no cert matches this host
-      ansible.builtin.debug:
-        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping)"
-      when: match_name not in cert_map
+    - name: Validate selected cert SAN includes this host (refuse wrong cert)
+      ansible.builtin.command: >
+        openssl x509 -in {{ cert_map[match_name].cert }} -noout -ext subjectAltName
+      delegate_to: localhost
+      become: false
+      register: san_check
+      changed_when: false
 
-    - name: Install cert/key only when match exists
-      block:
-        - name: Copy cert
-          ansible.builtin.copy:
-            src: "{{ cert_map[match_name].cert }}"
-            dest: "{{ tls_cert_path }}"
-            owner: root
-            group: root
-            mode: "0644"
+    - name: Fail if SAN does not include host
+      ansible.builtin.assert:
+        that:
+          - "'DNS:' ~ match_name in san_check.stdout"
+        fail_msg: >-
+          Refusing to install wrong cert on {{ match_name }}.
+          Selected cert: {{ cert_map[match_name].cert }}
+          openssl says:
+          {{ san_check.stdout }}
 
-        - name: Copy key
-          ansible.builtin.copy:
-            src: "{{ cert_map[match_name].key }}"
-            dest: "{{ tls_key_path }}"
-            owner: root
-            group: root
-            mode: "0600"
+    - name: Copy cert
+      ansible.builtin.copy:
+        src: "{{ cert_map[match_name].cert }}"
+        dest: "{{ tls_cert_path }}"
+        owner: root
+        group: root
+        mode: "0644"
 
-        - name: Regenerate cert info json for demo page
-          ansible.builtin.command: /usr/local/bin/generate_certinfo.sh
-          changed_when: false
+    - name: Copy key
+      ansible.builtin.copy:
+        src: "{{ cert_map[match_name].key }}"
+        dest: "{{ tls_key_path }}"
+        owner: root
+        group: root
+        mode: "0600"
 
-        - name: Reload httpd (ignore if not present)
-          ansible.builtin.service:
-            name: httpd
-            state: reloaded
-          ignore_errors: true
+    - name: Regenerate cert info json for demo page
+      ansible.builtin.command: /usr/local/bin/generate_certinfo.sh
+      changed_when: false
 
-      when: match_name in cert_map
+    - name: Reload httpd (ignore if not present)
+      ansible.builtin.service:
+        name: httpd
+        state: reloaded
+      ignore_errors: true
