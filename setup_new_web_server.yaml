@@ -20,16 +20,61 @@
     # Pick the initial cert/key from the 2025 bundle
     initial_cert_basename: web
 
+    # AWS region for tag lookup (used only if running on EC2)
+    aws_region: "{{ lookup('env','AWS_REGION') | default('us-east-2') }}"
+
   handlers:
     - name: restart apache
-      service:
+      ansible.builtin.service:
         name: "{{ httpd_service }}"
         state: restarted
         enabled: true
 
   tasks:
+    # --- Hostname from AWS Name tag (per-host fail should not kill the play) ---
+    - name: Set hostname from AWS Name tag (fail host if not possible, but continue play)
+      block:
+        - name: Get EC2 instance-id from metadata
+          ansible.builtin.uri:
+            url: http://169.254.169.254/latest/meta-data/instance-id
+            return_content: true
+            timeout: 2
+          register: instance_id
+          changed_when: false
+
+        - name: Lookup Name tag from AWS
+          delegate_to: localhost
+          amazon.aws.ec2_instance_info:
+            instance_ids:
+              - "{{ instance_id.content }}"
+            region: "{{ aws_region }}"
+          register: ec2_info
+
+        - name: Require Name tag to exist
+          ansible.builtin.assert:
+            that:
+              - ec2_info.instances | length > 0
+              - ec2_info.instances[0].tags is defined
+              - ec2_info.instances[0].tags.Name is defined
+            fail_msg: "Unable to determine AWS Name tag for instance-id {{ instance_id.content }}"
+
+        - name: Apply hostname if different
+          ansible.builtin.hostname:
+            name: "{{ ec2_info.instances[0].tags.Name }}"
+          when: ansible_hostname != ec2_info.instances[0].tags.Name
+
+      rescue:
+        - name: Warn and mark this host failed, but continue overall play
+          ansible.builtin.debug:
+            msg: "Host {{ inventory_hostname }} hostname step failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}"
+
+        - name: Fail this host (continue for others)
+          ansible.builtin.fail:
+            msg: "Skipping host {{ inventory_hostname }} due to hostname/tag lookup failure."
+
+    # --- Rest of provisioning ---
     - name: Install Apache + SSL packages
-      package:
+      ansible.builtin.package:
         name:
           - httpd
           - mod_ssl
@@ -37,7 +82,7 @@
         state: present
 
     - name: Ensure TLS directories exist
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         owner: root
@@ -48,7 +93,7 @@
         - "{{ tls_key_path | dirname }}"
 
     - name: Install initial (expiring 2025) cert
-      copy:
+      ansible.builtin.copy:
         src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_cert.pem"
         dest: "{{ tls_cert_path }}"
         owner: root
@@ -57,7 +102,7 @@
       notify: restart apache
 
     - name: Install initial (expiring 2025) key
-      copy:
+      ansible.builtin.copy:
         src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_key.pem"
         dest: "{{ tls_key_path }}"
         owner: root
@@ -66,7 +111,7 @@
       notify: restart apache
 
     - name: Install SSL vhost config from template
-      template:
+      ansible.builtin.template:
         src: templates/ssl.conf.j2
         dest: "{{ ssl_conf_path }}"
         owner: root
@@ -75,16 +120,15 @@
       notify: restart apache
 
     - name: Install generate_certinfo script
-      copy:
+      ansible.builtin.copy:
         src: files/generate_certinfo.sh
-        dest: /usr/local/bin/generate_certinfo.sh
+        dest: "{{ certinfo_script_path }}"
         owner: root
         group: root
-        mode: '0755'
-
+        mode: "0755"
 
     - name: Install TLS status index.html from template
-      template:
+      ansible.builtin.template:
         src: templates/index.html.j2
         dest: "{{ ssl_docroot }}/index.html"
         owner: root
@@ -93,11 +137,11 @@
       notify: restart apache
 
     - name: Generate initial certinfo.json
-      command: /usr/local/bin/generate_certinfo.sh
+      ansible.builtin.command: "{{ certinfo_script_path }}"
       changed_when: false
 
     - name: Ensure Apache is enabled and running
-      service:
+      ansible.builtin.service:
         name: "{{ httpd_service }}"
         state: started
         enabled: true
