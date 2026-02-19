@@ -22,13 +22,13 @@
       ansible.builtin.set_fact:
         match_name: "{{ inventory_hostname }}"
 
+  tasks:
     - name: Warn if no cert matches this host
       ansible.builtin.debug:
-        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping cert install)"
-      when: cert_map.get(match_name) is not defined
+        msg: "WARNING: No certificate in bundle matches {{ match_name }} (skipping)"
+      when: match_name not in cert_map
 
-  tasks:
-    - name: Install cert/key only when a matching cert_map entry exists
+    - name: Install cert/key only when match exists
       block:
         - name: Copy cert
           ansible.builtin.copy:
@@ -56,4 +56,4 @@
             state: reloaded
           ignore_errors: true
 
-      when: cert_map.get(match_name) is defined
+      when: match_name in cert_map
