@@ -1,59 +1,45 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
 CERT="/etc/pki/tls/certs/server.pem"
 OUT="/var/www/html/certinfo.json"
 
-if [[ ! -r "$CERT" ]]; then
-  cat > "$OUT" <<EOF
-{"error":"certificate file not readable","path":"$CERT"}
-EOF
-  exit 0
-fi
+openssl x509 -in "$CERT" -noout -text > /tmp/cert.txt
 
-subject="$(openssl x509 -in "$CERT" -noout -subject | sed 's/^subject= *//')"
-issuer="$(openssl x509 -in "$CERT" -noout -issuer | sed 's/^issuer= *//')"
-serial="$(openssl x509 -in "$CERT" -noout -serial | sed 's/^serial=//')"
-not_before="$(openssl x509 -in "$CERT" -noout -startdate | cut -d= -f2)"
-not_after="$(openssl x509 -in "$CERT" -noout -enddate   | cut -d= -f2)"
-fp_sha256="$(openssl x509 -in "$CERT" -noout -fingerprint -sha256 | cut -d= -f2)"
-fp_sha1="$(openssl x509 -in "$CERT" -noout -fingerprint -sha1 | cut -d= -f2)"
-pubkey="$(openssl x509 -in "$CERT" -noout -text | awk -F'Public-Key: ' '/Public-Key:/ {print $2; exit}' | xargs || true)"
-sigalg="$(openssl x509 -in "$CERT" -noout -text | awk -F': ' '/Signature Algorithm/ {print $2; exit}' | xargs || true)"
-cn="$(openssl x509 -in "$CERT" -noout -subject | sed -n 's/.*CN *= *\([^,\/]*\).*/\1/p' | head -1 || true)"
+SUBJECT=$(openssl x509 -in "$CERT" -noout -subject | sed 's/subject=//')
+ISSUER=$(openssl x509 -in "$CERT" -noout -issuer | sed 's/issuer=//')
+SERIAL=$(openssl x509 -in "$CERT" -noout -serial | sed 's/serial=//')
+NOTBEFORE=$(openssl x509 -in "$CERT" -noout -startdate | cut -d= -f2)
+NOTAFTER=$(openssl x509 -in "$CERT" -noout -enddate | cut -d= -f2)
+SHA256=$(openssl x509 -in "$CERT" -noout -fingerprint -sha256 | cut -d= -f2)
+SHA1=$(openssl x509 -in "$CERT" -noout -fingerprint -sha1 | cut -d= -f2)
+PUBKEY=$(openssl x509 -in "$CERT" -noout -text | grep "Public-Key" | head -1 | sed 's/.*Public-Key: //')
+SIGALG=$(openssl x509 -in "$CERT" -noout -text | grep "Signature Algorithm" | head -1 | awk -F: '{print $2}' | xargs)
 
-# SANs array (DNS only)
-mapfile -t sans < <(openssl x509 -in "$CERT" -noout -text \
-  | awk '/X509v3 Subject Alternative Name/ {getline; gsub(/DNS:/,""); gsub(/, /,"\n"); print}' \
-  | sed 's/^ *//;s/ *$//' \
-  | awk 'NF')
+CN=$(openssl x509 -in "$CERT" -noout -subject | sed -n 's/.*CN *= *\([^,/]*\).*/\1/p')
 
-json_escape() {
-  python3 - <<'PY'
-import json,sys
-print(json.dumps(sys.stdin.read().rstrip("\n"))[1:-1])
-PY
-}
+SANS=$(openssl x509 -in "$CERT" -noout -text | grep -A1 "Subject Alternative Name" | tail -1 | sed 's/DNS://g')
 
-# Write JSON
-{
-  echo "{"
-  echo "  \"subject\": \"$(printf "%s" "$subject" | json_escape)\","
-  echo "  \"issuer\": \"$(printf "%s" "$issuer" | json_escape)\","
-  echo "  \"serial\": \"$(printf "%s" "$serial" | json_escape)\","
-  echo "  \"not_before\": \"$(printf "%s" "$not_before" | json_escape)\","
-  echo "  \"not_after\": \"$(printf "%s" "$not_after" | json_escape)\","
-  echo "  \"fingerprint_sha256\": \"$(printf "%s" "$fp_sha256" | json_escape)\","
-  echo "  \"fingerprint_sha1\": \"$(printf "%s" "$fp_sha1" | json_escape)\","
-  echo "  \"public_key\": \"$(printf "%s" "$pubkey" | json_escape)\","
-  echo "  \"signature_algorithm\": \"$(printf "%s" "$sigalg" | json_escape)\","
-  echo "  \"common_name\": \"$(printf "%s" "$cn" | json_escape)\","
-  echo "  \"sans\": ["
-  for i in "${!sans[@]}"; do
-    comma=","
-    [[ "$i" -eq $(( ${#sans[@]} - 1 )) ]] && comma=""
-    echo "    \"$(printf "%s" "${sans[$i]}" | json_escape)\"$comma"
-  done
-  echo "  ]"
-  echo "}"
-} > "$OUT"
+IFS=',' read -ra SAN_ARRAY <<< "$SANS"
+
+printf '{\n' > $OUT
+printf '  "subject": "%s",\n' "$SUBJECT" >> $OUT
+printf '  "issuer": "%s",\n' "$ISSUER" >> $OUT
+printf '  "serial": "%s",\n' "$SERIAL" >> $OUT
+printf '  "not_before": "%s",\n' "$NOTBEFORE" >> $OUT
+printf '  "not_after": "%s",\n' "$NOTAFTER" >> $OUT
+printf '  "fingerprint_sha256": "%s",\n' "$SHA256" >> $OUT
+printf '  "fingerprint_sha1": "%s",\n' "$SHA1" >> $OUT
+printf '  "public_key": "%s",\n' "$PUBKEY" >> $OUT
+printf '  "signature_algorithm": "%s",\n' "$SIGALG" >> $OUT
+printf '  "common_name": "%s",\n' "$CN" >> $OUT
+printf '  "sans": [' >> $OUT
+
+first=1
+for san in "${SAN_ARRAY[@]}"; do
+  san=$(echo $san | xargs)
+  if [ $first -eq 0 ]; then printf ',' >> $OUT; fi
+  printf '"%s"' "$san" >> $OUT
+  first=0
+done
+
+printf ']\n}\n' >> $OUT
