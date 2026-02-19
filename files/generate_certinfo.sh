@@ -1,4 +1,3 @@
-{% raw %}
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -58,5 +57,3 @@ PY
   echo "  ]"
   echo "}"
 } > "$OUT"
-
-{% endraw %}
