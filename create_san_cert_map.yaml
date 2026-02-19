@@ -3,7 +3,8 @@
   hosts: localhost
   gather_facts: false
   vars:
-    bundle_dir: "certs/cert_bundle/2026-rotation"
+    cert_bundle_name: "{{ cert_bundle_name | default('2026-rotation') }}"
+    bundle_dir: "certs/cert_bundle/{{ cert_bundle_name }}"
   tasks:
     - name: Find SAN certs in bundle
       find:
