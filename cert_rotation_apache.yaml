@@ -1,5 +1,5 @@
 ---
-- name: Deploy matching cert/key to hosts
+- name: Rotate apache certs using cert_map from workflow artifacts
   hosts: all
   gather_facts: true
   become: true
