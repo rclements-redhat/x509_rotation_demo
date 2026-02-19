@@ -93,7 +93,7 @@
       notify: restart apache
 
     - name: Generate initial certinfo.json
-      command: "{{ certinfo_script_path }}"
+      command: /usr/local/bin/generate_certinfo.sh
       changed_when: false
 
     - name: Ensure Apache is enabled and running
