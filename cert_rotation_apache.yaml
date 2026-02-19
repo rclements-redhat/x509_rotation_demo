@@ -18,9 +18,10 @@
           cert_map is not defined. Ensure the previous workflow job publishes it
           using set_stats (data: { cert_map: ... }).
 
-    - name: Determine match name (fqdn -> inventory fallback)
+    # IMPORTANT: don't use ansible_fqdn (EC2 often reports ip-*.compute.internal)
+    - name: Determine match name (use inventory hostname)
       ansible.builtin.set_fact:
-        match_name: "{{ ansible_fqdn | default(inventory_hostname) }}"
+        match_name: "{{ inventory_hostname }}"
 
     - name: Warn if no cert matches this host
       ansible.builtin.debug:

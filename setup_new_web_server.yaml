@@ -18,7 +18,6 @@
     ssl_conf_path: /etc/httpd/conf.d/ssl.conf
 
     # Pick the initial cert/key from the 2025 bundle
-    # (we'll auto-set this to the AWS Name tag hostname "webX" if possible)
     initial_cert_basename: web
 
     # AWS region for tag lookup (used only if running on EC2)
@@ -32,8 +31,8 @@
         enabled: true
 
   tasks:
-    # --- Best-effort: set hostname from AWS Name tag AND use it to pick the right initial cert basename ---
-    - name: Best-effort: set hostname from AWS Name tag and derive initial cert basename
+    # --- Hostname from AWS Name tag (best-effort: never fail the play/host) ---
+    - name: Set hostname from AWS Name tag (best effort)
       block:
         - name: Get EC2 instance-id from metadata
           ansible.builtin.uri:
@@ -51,41 +50,18 @@
             region: "{{ aws_region }}"
           register: ec2_info
 
-        - name: Set aws_name fact if Name tag present
-          ansible.builtin.set_fact:
-            aws_name: "{{ ec2_info.instances[0].tags.Name }}"
+        - name: Apply hostname if Name tag is present and different
+          ansible.builtin.hostname:
+            name: "{{ ec2_info.instances[0].tags.Name }}"
           when:
             - ec2_info.instances | length > 0
             - ec2_info.instances[0].tags is defined
             - ec2_info.instances[0].tags.Name is defined
-
-        - name: Apply hostname if different
-          ansible.builtin.hostname:
-            name: "{{ aws_name }}"
-          when:
-            - aws_name is defined
-            - ansible_hostname != aws_name
-
-        # Refresh facts so anything later that relies on hostname/fqdn isn't stale
-        - name: Refresh facts after hostname change
-          ansible.builtin.setup:
-          when: aws_name is defined
-
-        # For your bundle naming: web1.demo.local -> "web1"
-        - name: Derive initial cert basename from aws_name (webX)
-          ansible.builtin.set_fact:
-            initial_cert_basename: "{{ (aws_name | lower).split('.')[0] }}"
-          when: aws_name is defined
+            - ansible_hostname != ec2_info.instances[0].tags.Name
 
       rescue:
         # Swallow any errors and continue silently
         - ansible.builtin.meta: noop
-
-    # If AWS name couldn't be resolved, fall back to inventory hostname (common in AAP)
-    - name: Fallback initial cert basename from inventory hostname
-      ansible.builtin.set_fact:
-        initial_cert_basename: "{{ (inventory_hostname | lower).split('.')[0] }}"
-      when: initial_cert_basename == 'web' and (inventory_hostname is defined)
 
     # --- Rest of provisioning ---
     - name: Install Apache + SSL packages
@@ -107,7 +83,7 @@
         - "{{ tls_cert_path | dirname }}"
         - "{{ tls_key_path | dirname }}"
 
-    - name: Install initial (expiring 2025) cert (best-effort, skip if missing)
+    - name: Install initial (expiring 2025) cert
       ansible.builtin.copy:
         src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_cert.pem"
         dest: "{{ tls_cert_path }}"
@@ -115,9 +91,8 @@
         group: root
         mode: "0644"
       notify: restart apache
-      ignore_errors: true
 
-    - name: Install initial (expiring 2025) key (best-effort, skip if missing)
+    - name: Install initial (expiring 2025) key
       ansible.builtin.copy:
         src: "{{ bundle_dir_2025 }}/{{ initial_cert_basename }}_san_key.pem"
         dest: "{{ tls_key_path }}"
@@ -125,7 +100,6 @@
         group: root
         mode: "0600"
       notify: restart apache
-      ignore_errors: true
 
     - name: Install SSL vhost config from template
       ansible.builtin.template:
@@ -153,10 +127,9 @@
         mode: "0644"
       notify: restart apache
 
-    - name: Generate initial certinfo.json (best-effort)
+    - name: Generate initial certinfo.json
       ansible.builtin.command: "{{ certinfo_script_path }}"
       changed_when: false
-      ignore_errors: true
 
     - name: Ensure Apache is enabled and running
       ansible.builtin.service:
