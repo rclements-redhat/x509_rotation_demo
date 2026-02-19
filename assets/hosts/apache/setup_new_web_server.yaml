@@ -6,7 +6,7 @@
 
   vars:
     httpd_service: httpd
-    bundle_dir_2025: certs/cert_bundle/2025-current
+    bundle_dir_2025: /certs/cert_bundle/2025-current
 
     tls_cert_path: /etc/pki/tls/certs/server.pem
     tls_key_path: /etc/pki/tls/private/server.key
