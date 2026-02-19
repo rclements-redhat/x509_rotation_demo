@@ -31,8 +31,8 @@
         enabled: true
 
   tasks:
-    # --- Hostname from AWS Name tag (per-host fail should not kill the play) ---
-    - name: Set hostname from AWS Name tag (fail host if not possible, but continue play)
+    # --- Hostname from AWS Name tag (best-effort: never fail the play/host) ---
+    - name: Set hostname from AWS Name tag (best effort)
       block:
         - name: Get EC2 instance-id from metadata
           ansible.builtin.uri:
@@ -50,27 +50,18 @@
             region: "{{ aws_region }}"
           register: ec2_info
 
-        - name: Require Name tag to exist
-          ansible.builtin.assert:
-            that:
-              - ec2_info.instances | length > 0
-              - ec2_info.instances[0].tags is defined
-              - ec2_info.instances[0].tags.Name is defined
-            fail_msg: "Unable to determine AWS Name tag for instance-id {{ instance_id.content }}"
-
-        - name: Apply hostname if different
+        - name: Apply hostname if Name tag is present and different
           ansible.builtin.hostname:
             name: "{{ ec2_info.instances[0].tags.Name }}"
-          when: ansible_hostname != ec2_info.instances[0].tags.Name
+          when:
+            - ec2_info.instances | length > 0
+            - ec2_info.instances[0].tags is defined
+            - ec2_info.instances[0].tags.Name is defined
+            - ansible_hostname != ec2_info.instances[0].tags.Name
 
       rescue:
-        - name: Warn and mark this host failed, but continue overall play
-          ansible.builtin.debug:
-            msg: "Host {{ inventory_hostname }} hostname step failed: {{ ansible_failed_result.msg | default(ansible_failed_result) }}"
-
-        - name: Fail this host (continue for others)
-          ansible.builtin.fail:
-            msg: "Skipping host {{ inventory_hostname }} due to hostname/tag lookup failure."
+        # Swallow any errors and continue silently
+        - ansible.builtin.meta: noop
 
     # --- Rest of provisioning ---
     - name: Install Apache + SSL packages
