@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="en">
-
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -19,8 +18,8 @@
  --bad:#ff5c7a;
  --border:rgba(255,255,255,.10);
  --shadow:0 12px 40px rgba(0,0,0,.35);
- --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
- --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+ --mono:ui-monospace,Menlo,Consolas,monospace;
+ --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
 }
 
 *{box-sizing:border-box}
@@ -32,7 +31,6 @@ body{
  background:
  radial-gradient(1200px 700px at 20% 10%, rgba(110,231,255,.18), transparent 60%),
  radial-gradient(900px 600px at 80% 20%, rgba(61,220,151,.12), transparent 55%),
- radial-gradient(900px 700px at 50% 90%, rgba(255,92,122,.10), transparent 55%),
  linear-gradient(180deg,var(--bg0),var(--bg1));
  min-height:100vh;
  display:flex;
@@ -41,33 +39,30 @@ body{
  padding:24px;
 }
 
-.wrap{width:min(1080px,100%)}
+.wrap{width:min(1100px,100%)}
 
 .header{
  display:flex;
- align-items:flex-end;
  justify-content:space-between;
- gap:16px;
+ align-items:flex-end;
  margin-bottom:10px;
 }
 
-.title{display:flex;flex-direction:column;gap:6px}
-
 h1{
  margin:0;
- font-size:clamp(22px,3vw,34px);
- line-height:1.1;
- letter-spacing:-.02em;
+ font-size:28px;
 }
 
-.subtitle{color:var(--muted);font-size:14px}
+.subtitle{
+ color:var(--muted);
+ font-size:14px;
+}
 
-/* BIG SERVER NAME BANNER */
+/* BIG SERVER BANNER */
 .serverBanner{
- margin-top:10px;
- margin-bottom:18px;
- padding:18px 22px;
- border-radius:16px;
+ margin:14px 0 20px;
+ padding:22px;
+ border-radius:18px;
  background:linear-gradient(135deg,rgba(110,231,255,.15),rgba(61,220,151,.12));
  border:1px solid var(--border);
  box-shadow:var(--shadow);
@@ -75,18 +70,27 @@ h1{
 
 .serverLabel{
  font-size:12px;
- letter-spacing:.12em;
+ letter-spacing:.15em;
  text-transform:uppercase;
  color:var(--muted);
  margin-bottom:6px;
 }
 
 .serverName{
- font-size:clamp(34px,6vw,68px);
+ font-size:clamp(36px,6vw,72px);
  font-weight:800;
- letter-spacing:-.02em;
  color:var(--accent);
- word-break:break-word;
+ letter-spacing:-.02em;
+}
+
+.serverMeta{
+ margin-top:10px;
+ font-size:13px;
+ color:var(--muted);
+}
+.serverMeta span{
+ color:#dbe7ff;
+ font-family:var(--mono);
 }
 
 .pill{
@@ -99,24 +103,17 @@ h1{
  border-radius:999px;
  font-size:13px;
  color:var(--muted);
- white-space:nowrap;
 }
 
 .dot{
  width:10px;height:10px;border-radius:50%;
  background:var(--warn);
- box-shadow:0 0 0 4px rgba(255,209,102,.18);
 }
 
 .grid{
  display:grid;
  grid-template-columns:1.25fr .75fr;
  gap:16px;
-}
-
-@media (max-width:900px){
- .grid{grid-template-columns:1fr}
- .header{align-items:flex-start;flex-direction:column}
 }
 
 .card{
@@ -128,29 +125,13 @@ h1{
 }
 
 .card .top{
- padding:18px 18px 14px;
+ padding:18px;
  border-bottom:1px solid var(--border);
  display:flex;
- align-items:center;
  justify-content:space-between;
 }
 
-.card .top h2{
- margin:0;
- font-size:16px;
- color:#dbe7ff;
- font-weight:650;
-}
-
-.badge{
- font-size:12px;
- padding:6px 10px;
- border-radius:999px;
- border:1px solid var(--border);
- background:rgba(255,255,255,.06);
-}
-
-.body{padding:16px 18px 18px}
+.card .body{padding:18px}
 
 .kv{
  display:grid;
@@ -163,29 +144,27 @@ h1{
  font-size:12px;
  text-transform:uppercase;
  letter-spacing:.08em;
- padding-top:4px;
 }
 
 .v{
  font-size:14px;
- line-height:1.35;
  word-break:break-word;
 }
 
-.mono{font-family:var(--mono);font-size:13px}
-
-.list{margin:8px 0 0;padding-left:18px}
-.list li{margin:4px 0}
+.mono{font-family:var(--mono)}
 
 .footer{
- margin-top:14px;
- color:var(--muted);
+ margin-top:16px;
  font-size:12px;
+ color:var(--muted);
  display:flex;
  justify-content:space-between;
- flex-wrap:wrap;
- gap:12px;
 }
+
+.statusStrong{font-weight:700}
+.ok{color:var(--good)}
+.warn{color:var(--warn)}
+.bad{color:var(--bad)}
 
 .btn{
  cursor:pointer;
@@ -196,11 +175,6 @@ h1{
  border-radius:12px;
  font-size:13px;
 }
-
-.statusStrong{font-weight:650}
-.ok{color:var(--good)}
-.warn{color:var(--warn)}
-.bad{color:var(--bad)}
 </style>
 </head>
 
@@ -208,20 +182,21 @@ h1{
 <div class="wrap">
 
 <div class="header">
- <div class="title">
+ <div>
   <h1>TLS Certificate Status</h1>
-  <div class="subtitle">Live certificate details for this Apache HTTPS endpoint.</div>
+  <div class="subtitle">Live certificate + backend node</div>
  </div>
  <div class="pill">
   <span class="dot" id="statusDot"></span>
-  <span id="statusText">Checking expiry…</span>
+  <span id="statusText">Checking…</span>
  </div>
 </div>
 
 <!-- BIG SERVER NAME -->
 <div class="serverBanner">
- <div class="serverLabel">Server</div>
- <div class="serverName" id="serverName">Loading…</div>
+ <div class="serverLabel">Connected To Server</div>
+ <div class="serverName" id="serverName">{{ ansible_facts.fqdn | default(inventory_hostname) }}</div>
+ <div class="serverMeta">Cert CN: <span id="certCNInline">…</span></div>
 </div>
 
 <div class="grid">
@@ -229,76 +204,38 @@ h1{
 <section class="card">
 <div class="top">
  <h2>Certificate Overview</h2>
- <span class="badge" id="badgeCN">CN: …</span>
+ <span id="badgeCN">CN: …</span>
 </div>
 
 <div class="body">
 <dl class="kv">
 
-<div class="k">Subject</div>
-<div class="v mono" id="subject">Loading…</div>
-
-<div class="k">Issuer</div>
-<div class="v mono" id="issuer">Loading…</div>
-
-<div class="k">Serial</div>
-<div class="v mono" id="serial">Loading…</div>
-
-<div class="k">Valid From</div>
-<div class="v" id="notBefore">Loading…</div>
-
-<div class="k">Valid Until</div>
-<div class="v" id="notAfter">Loading…</div>
-
-<div class="k">Days Remaining</div>
-<div class="v" id="daysLeft">…</div>
-
-<div class="k">SHA-256 Fingerprint</div>
-<div class="v mono" id="fpSha256">Loading…</div>
-
-<div class="k">SHA-1 Fingerprint</div>
-<div class="v mono" id="fpSha1">Loading…</div>
-
-<div class="k">Public Key</div>
-<div class="v" id="pubkey">Loading…</div>
-
-<div class="k">Signature</div>
-<div class="v" id="sigalg">Loading…</div>
-
-<div class="k">Subject Alt Names</div>
-<div class="v">
- <ul class="list" id="sans"></ul>
-</div>
+<div class="k">Subject</div><div class="v mono" id="subject">…</div>
+<div class="k">Issuer</div><div class="v mono" id="issuer">…</div>
+<div class="k">Serial</div><div class="v mono" id="serial">…</div>
+<div class="k">Valid From</div><div class="v" id="notBefore">…</div>
+<div class="k">Valid Until</div><div class="v" id="notAfter">…</div>
+<div class="k">Days Remaining</div><div class="v" id="daysLeft">…</div>
+<div class="k">SHA-256</div><div class="v mono" id="fpSha256">…</div>
 
 </dl>
 
 <div class="footer">
- <div>Status: <span class="statusStrong" id="statusLabel">…</span></div>
- <div>
-  <button class="btn" id="copyBtn">📋 Copy JSON</button>
-  <button class="btn" id="refreshBtn">🔄 Refresh</button>
- </div>
+<div>Status: <span class="statusStrong" id="statusLabel">…</span></div>
+<div>
+<button class="btn" id="refreshBtn">Refresh</button>
+</div>
 </div>
 
 </div>
 </section>
 
 <aside class="card">
-<div class="top">
- <h2>Endpoint</h2>
- <span class="badge">HTTPS</span>
-</div>
-
+<div class="top"><h2>Endpoint</h2></div>
 <div class="body">
 <dl class="kv" style="grid-template-columns:110px 1fr;">
-<div class="k">Host</div>
-<div class="v mono" id="host">…</div>
-
-<div class="k">Port</div>
-<div class="v mono" id="port">…</div>
-
-<div class="k">Fetched</div>
-<div class="v" id="fetchedAt">…</div>
+<div class="k">Host</div><div class="v mono" id="host">…</div>
+<div class="k">Fetched</div><div class="v" id="fetchedAt">…</div>
 </dl>
 </div>
 </aside>
@@ -310,40 +247,37 @@ h1{
 const CERTINFO_URL="/certinfo.json";
 const el=id=>document.getElementById(id);
 
-function fmtDate(iso){
- if(!iso) return "—";
- const d=new Date(iso);
- if(Number.isNaN(d.getTime())) return iso;
- return d.toLocaleString();
-}
-
-function daysBetween(a,b){
- return Math.floor((b-a)/(24*60*60*1000));
-}
+function fmtDate(x){ if(!x) return "—"; return new Date(x).toLocaleString(); }
+function daysBetween(a,b){ return Math.floor((b-a)/(86400000)); }
 
 function setStatus(days){
- const dot=el("statusDot");
- const txt=el("statusText");
- const lbl=el("statusLabel");
-
  let cls="warn",msg="Expiring soon";
  if(days>=30){cls="ok";msg="Healthy";}
  if(days<7){cls="bad";msg="Critical";}
-
- dot.style.background=(cls==="ok")?"var(--good)":(cls==="bad"?"var(--bad)":"var(--warn)");
- txt.textContent=`${msg} • ${days} days remaining`;
- lbl.textContent=msg;
- lbl.className="statusStrong "+cls;
+ el("statusText").textContent=`${msg} • ${days} days`;
+ el("statusLabel").textContent=msg;
+ el("statusLabel").className="statusStrong "+cls;
 }
 
-async function loadCertInfo(){
+async function load(){
  el("host").textContent=location.hostname;
- el("port").textContent=location.port||"443";
  el("fetchedAt").textContent=new Date().toLocaleString();
 
  const res=await fetch(CERTINFO_URL,{cache:"no-store"});
- if(!res.ok) throw new Error("fetch failed");
  const d=await res.json();
+
+ const cn=d.common_name ||
+  (d.subject||"").match(/CN\s*=\s*([^,\/]+)/)?.[1] ||
+  "unknown";
+
+ // ===== SERVER NAME PRIORITY =====
+ // 1) backend provided hostname (best)
+ // 2) browser hostname fallback
+ const realServer = d.server_hostname || location.hostname || "unknown";
+
+ el("serverName").textContent = realServer;
+ el("certCNInline").textContent = cn;
+ el("badgeCN").textContent="CN: "+cn;
 
  el("subject").textContent=d.subject||"—";
  el("issuer").textContent=d.issuer||"—";
@@ -351,47 +285,20 @@ async function loadCertInfo(){
  el("notBefore").textContent=fmtDate(d.not_before);
  el("notAfter").textContent=fmtDate(d.not_after);
  el("fpSha256").textContent=d.fingerprint_sha256||"—";
- el("fpSha1").textContent=d.fingerprint_sha1||"—";
- el("pubkey").textContent=d.public_key||"—";
- el("sigalg").textContent=d.signature_algorithm||"—";
 
- const cn=d.common_name ||
-          (d.subject||"").match(/CN\s*=\s*([^,\/]+)/)?.[1] ||
-          location.hostname ||
-          "Unknown";
-
- el("badgeCN").textContent="CN: "+cn;
- el("serverName").textContent=cn;
-
- const na=d.not_after?new Date(d.not_after):null;
  let days=0;
- if(na) days=daysBetween(new Date(),na);
+ if(d.not_after){
+  days=daysBetween(new Date(), new Date(d.not_after));
+ }
  el("daysLeft").textContent=days;
  setStatus(days);
-
- const sans=Array.isArray(d.sans)?d.sans:[];
- const sansEl=el("sans");
- sansEl.innerHTML="";
- sans.forEach(s=>{
-   const li=document.createElement("li");
-   li.textContent=s;
-   sansEl.appendChild(li);
- });
-
- el("copyBtn").onclick=async()=>{
-  await navigator.clipboard.writeText(JSON.stringify(d,null,2));
- };
 
  el("refreshBtn").onclick=()=>location.reload();
 }
 
-(async()=>{
- try{await loadCertInfo();}
- catch(e){
-  el("serverName").textContent=location.hostname||"Unknown";
-  el("statusText").textContent="Unable to load cert";
- }
-})();
+load().catch(e=>{
+ el("serverName").textContent="Unable to load";
+});
 </script>
 
 </body>
