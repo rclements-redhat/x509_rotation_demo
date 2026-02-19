@@ -275,7 +275,6 @@ async function load(){
  // 2) browser hostname fallback
  const realServer = d.server_hostname || location.hostname || "unknown";
 
- el("serverName").textContent = realServer;
  el("certCNInline").textContent = cn;
  el("badgeCN").textContent="CN: "+cn;
 
