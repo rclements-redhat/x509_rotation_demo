@@ -1,21 +1,21 @@
 ---
-- name: Rotate apache certs using cert_map from workflow artifacts
+- name: Deploy matching cert/key to hosts
   hosts: all
   gather_facts: true
   become: true
   vars:
     tls_cert_path: /etc/pki/tls/certs/server.pem
     tls_key_path: /etc/pki/tls/private/server.key
-  tasks:
-    - name: Sanity check - cert_map exists in workflow artifacts
+
+  pre_tasks:
+    - name: Sanity check - cert_map exists (from workflow artifacts)
       assert:
         that:
-          - ansible_stats is defined
-          - ansible_stats.data is defined
-          - ansible_stats.data.cert_map is defined
+          - cert_map is defined
+          - cert_map | length > 0
         fail_msg: >
-          cert_map was not found in workflow artifacts. Ensure the previous workflow node
-          publishes it using set_stats and that "Pass artifacts" is enabled on the node.
+          cert_map is not defined. Ensure the previous workflow job publishes it
+          using set_stats (data: { cert_map: ... }).
 
     - name: Determine match name (fqdn -> inventory fallback)
       set_fact:
@@ -24,11 +24,12 @@
     - name: Fail if no cert matches this host
       fail:
         msg: "No certificate in bundle matches {{ match_name }}"
-      when: ansible_stats.data.cert_map[match_name] is not defined
+      when: cert_map[match_name] is not defined
 
+  tasks:
     - name: Copy cert
       copy:
-        src: "{{ ansible_stats.data.cert_map[match_name].cert }}"
+        src: "{{ cert_map[match_name].cert }}"
         dest: "{{ tls_cert_path }}"
         owner: root
         group: root
@@ -36,7 +37,7 @@
 
     - name: Copy key
       copy:
-        src: "{{ ansible_stats.data.cert_map[match_name].key }}"
+        src: "{{ cert_map[match_name].key }}"
         dest: "{{ tls_key_path }}"
         owner: root
         group: root
