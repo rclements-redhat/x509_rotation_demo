@@ -57,3 +57,8 @@
       debug:
         var: cert_map
 
+    - name: Publish cert_map to workflow artifacts
+      set_stats:
+        data:
+          cert_map: "{{ cert_map }}"
+        aggregate: false
